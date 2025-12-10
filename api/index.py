@@ -235,6 +235,9 @@ def task_detail(user_id, task_id):
     if request.method == 'PUT':
         try:
             data = request.json
+            print(f"DEBUG PUT: Received data: {data}")
+            print(f"DEBUG PUT: New status: {data.get('status')}")
+
             conn = get_db()
             cursor = conn.cursor()
             cursor.execute("""
@@ -243,10 +246,14 @@ def task_detail(user_id, task_id):
                 WHERE id = %s AND user_id = %s
             """, (data.get('status', 'pending'), task_id, user_id))
             conn.commit()
+
+            print(f"DEBUG PUT: Rows affected: {cursor.rowcount}")
+
             cursor.close()
             conn.close()
             return jsonify({'message': 'Task updated'})
         except Exception as e:
+            print(f"DEBUG PUT ERROR: {e}")
             return jsonify({'error': str(e)}), 500
     
     elif request.method == 'DELETE':

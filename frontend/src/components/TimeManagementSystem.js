@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Clock, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { Bell, Clock, X, CheckCircle, AlertCircle, Circle, PlayCircle } from 'lucide-react';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
@@ -38,9 +38,19 @@ const TimeManagementSystem = ({ user, onLogout }) => {
     setNotifications(newNotifications);
   }, [tasks]);
 
-  const toggleTaskStatus = (id) => {
+  const cycleTaskStatus = (id) => {
     const task = tasks.find(t => t.id === id);
-    const newStatus = task.status === 'completed' ? 'pending' : 'completed';
+    let newStatus;
+    
+    // Cycle through: pending -> in_progress -> completed -> pending
+    if (task.status === 'pending') {
+      newStatus = 'in_progress';
+    } else if (task.status === 'in_progress') {
+      newStatus = 'completed';
+    } else {
+      newStatus = 'pending';
+    }
+    
     const token = localStorage.getItem('token');
     axios.put(`${API_BASE_URL}/tasks/${id}`, { status: newStatus }, {
       headers: {
@@ -81,10 +91,11 @@ const TimeManagementSystem = ({ user, onLogout }) => {
 
   const filteredTasks = tasks.filter(task => {
     if (filter === 'pending') return task.status === 'pending';
+    if (filter === 'in_progress') return task.status === 'in_progress';
     if (filter === 'completed') return task.status === 'completed';
     if (filter === 'urgent') {
       const timeUntil = new Date(task.due_date) - new Date();
-      return timeUntil < 24 * 60 * 60 * 1000 && task.status === 'pending';
+      return timeUntil < 24 * 60 * 60 * 1000 && task.status !== 'completed';
     }
     return true;
   });
@@ -98,10 +109,32 @@ const TimeManagementSystem = ({ user, onLogout }) => {
     }
   };
 
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="text-green-500" size={24} />;
+      case 'in_progress':
+        return <PlayCircle className="text-blue-500" size={24} />;
+      default:
+        return <Circle className="text-gray-400" size={24} />;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'in_progress':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Simplified Header - Only Bell Button */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-800">My Tasks</h1>
           <button onClick={() => setShowNotifications(!showNotifications)} className="relative p-3 bg-indigo-100 rounded-lg hover:bg-indigo-200 transition">
@@ -134,16 +167,18 @@ const TimeManagementSystem = ({ user, onLogout }) => {
           </div>
         )}
 
+        {/* Filters */}
         <div className="bg-white rounded-xl shadow-lg p-4 mb-6">
-          <div className="flex gap-2">
-            {['all', 'pending', 'urgent', 'completed'].map(f => (
+          <div className="flex gap-2 flex-wrap">
+            {['all', 'pending', 'in_progress', 'urgent', 'completed'].map(f => (
               <button key={f} onClick={() => setFilter(f)} className={`px-4 py-2 rounded-lg font-medium transition ${filter === f ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700'}`}>
-                {f.charAt(0).toUpperCase() + f.slice(1)}
+                {f === 'in_progress' ? 'In Progress' : f.charAt(0).toUpperCase() + f.slice(1)}
               </button>
             ))}
           </div>
         </div>
 
+        {/* Task List */}
         <div className="space-y-4">
           {filteredTasks.length === 0 ? (
             <div className="bg-white rounded-xl shadow-lg p-12 text-center">
@@ -154,24 +189,35 @@ const TimeManagementSystem = ({ user, onLogout }) => {
               <div key={task.id} className={`bg-white rounded-xl shadow-lg p-6 ${task.status === 'completed' ? 'opacity-60' : ''}`}>
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-4 flex-1">
-                    <button onClick={() => toggleTaskStatus(task.id)} className="mt-1">
-                      {task.status === 'completed' ? (
-                        <CheckCircle className="text-green-500" size={24} />
-                      ) : (
-                        <div className="w-6 h-6 rounded-full border-2 border-gray-300 hover:border-indigo-500" />
-                      )}
+                    <button 
+                      onClick={() => cycleTaskStatus(task.id)} 
+                      className="mt-1 hover:scale-110 transition-transform"
+                      title={`Click to change status (currently: ${task.status})`}
+                    >
+                      {getStatusIcon(task.status)}
                     </button>
                     <div className="flex-1">
                       <h3 className={`text-lg font-semibold ${task.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-800'}`}>{task.title}</h3>
                       <p className="text-gray-600 mt-1">{task.description}</p>
-                      <div className="flex items-center gap-4 mt-3 text-sm">
-                        <span className="flex items-center gap-1 text-gray-500"><Clock size={16} />Due: {formatDate(task.due_date)}</span>
-                        <span className="flex items-center gap-1 text-gray-500"><AlertCircle size={16} />{getTimeUntil(task.due_date)}</span>
-                        <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${getPriorityColor(task.priority)}`}>{task.priority.toUpperCase()}</span>
+                      <div className="flex items-center gap-4 mt-3 text-sm flex-wrap">
+                        <span className="flex items-center gap-1 text-gray-500">
+                          <Clock size={16} />Due: {formatDate(task.due_date)}
+                        </span>
+                        <span className="flex items-center gap-1 text-gray-500">
+                          <AlertCircle size={16} />{getTimeUntil(task.due_date)}
+                        </span>
+                        <span className={`px-2 py-1 rounded-lg text-xs font-medium border ${getPriorityColor(task.priority)}`}>
+                          {task.priority.toUpperCase()}
+                        </span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(task.status)}`}>
+                          {task.status === 'in_progress' ? 'In Progress' : task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <button onClick={() => deleteTask(task.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><X size={20} /></button>
+                  <button onClick={() => deleteTask(task.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                    <X size={20} />
+                  </button>
                 </div>
               </div>
             ))

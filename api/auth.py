@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import jwt
 import bcrypt
 from datetime import datetime, timedelta
@@ -5,7 +8,10 @@ from functools import wraps
 from flask import request, jsonify
 import os
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
+SECRET_KEY = os.getenv('SECRET_KEY')
+print(f"DEBUG: SECRET_KEY value: {SECRET_KEY}")
+if not SECRET_KEY:
+    raise ValueError("SECRET_KEY environment variable is not set!")
 
 def hash_password(password):
     """Hash a password for storing."""

@@ -15,5 +15,8 @@
             "username": "timeuser",
             "askForPassword": true
         }
+    ],
+    "cSpell.words": [
+        "hashpw"
     ]
 }
